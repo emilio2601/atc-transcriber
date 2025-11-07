@@ -10,7 +10,11 @@ Rails.application.routes.draw do
     end
 
     # Public-ish API for your UI
-    resources :clips, only: [ :index, :show, :update ]
+    resources :clips, only: [ :index, :show, :update ] do
+      member do
+        get :audio
+      end
+    end
   end
 
   mount MissionControl::Jobs::Engine, at: "/jobs"
