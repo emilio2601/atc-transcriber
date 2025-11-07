@@ -7,6 +7,13 @@ class TransmissionDurationJob < ApplicationJob
   BATCH_SIZE = 100
 
   def perform(limit: nil)
+    # Resolve ffprobe once per job run; exit early if unavailable
+    @ffprobe_path = which_ffprobe
+    unless @ffprobe_path
+      Rails.logger.error "[TransmissionDurationJob] Aborting: ffprobe not available"
+      return
+    end
+
     scope = Transmission.where(duration_sec: nil)
     scope = scope.limit(limit) if limit
 
@@ -33,7 +40,7 @@ class TransmissionDurationJob < ApplicationJob
   end
 
   def probe_duration(url)
-    ffprobe = which_ffprobe
+    ffprobe = @ffprobe_path || which_ffprobe
     return nil unless ffprobe
 
     cmd = [
@@ -67,14 +74,21 @@ class TransmissionDurationJob < ApplicationJob
   end
 
   def which_ffprobe
+    return @ffprobe_path if defined?(@ffprobe_path) && @ffprobe_path
+
     env_path = ENV["FFPROBE_PATH"]
     if env_path && !env_path.empty? && File.executable?(env_path)
-      return env_path
+      @ffprobe_path = env_path
+      return @ffprobe_path
     end
 
-    found = `command -v ffprobe`.strip
-    if found && !found.empty?
-      return found
+    path_env = ENV["PATH"] || ""
+    path_env.split(File::PATH_SEPARATOR).each do |dir|
+      candidate = File.join(dir, "ffprobe")
+      if File.executable?(candidate)
+        @ffprobe_path = candidate
+        return @ffprobe_path
+      end
     end
 
     Rails.logger.error "[TransmissionDurationJob] ffprobe not found on PATH"
