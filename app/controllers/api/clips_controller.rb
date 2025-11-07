@@ -15,19 +15,36 @@ class Api::ClipsController < ApplicationController
       scope = scope.where(status: %w[asr_done finalized])
     end
 
-    limit = (params[:limit] || 200).to_i.clamp(1, 1000)
-    scope = scope.order(started_at: :desc).limit(limit)
+    per = (params[:per] || params[:limit] || 50).to_i.clamp(1, 1000)
+    scope = scope.order(started_at: :desc)
+    pagy_obj, records = pagy(scope, limit: per)
 
-    render json: scope.map { |tx|
-      {
-        id: tx.id,
-        object_key: tx.object_key,
-        channel_label: tx.channel_label,
-        freq_hz: tx.freq_hz,
-        started_at: tx.started_at,
-        status: tx.status,
-        asr_text: tx.asr_text,
-        final_text: tx.final_text
+    from = pagy_obj.count.positive? ? (pagy_obj.page - 1) * pagy_obj.limit + 1 : 0
+    to = pagy_obj.count.positive? ? [ pagy_obj.page * pagy_obj.limit, pagy_obj.count ].min : 0
+
+    render json: {
+      items: records.map { |tx|
+        {
+          id: tx.id,
+          object_key: tx.object_key,
+          channel_label: tx.channel_label,
+          freq_hz: tx.freq_hz,
+          started_at: tx.started_at,
+          duration_sec: tx.duration_sec,
+          status: tx.status,
+          asr_text: tx.asr_text,
+          final_text: tx.final_text
+        }
+      },
+      meta: {
+        count: pagy_obj.count,
+        page: pagy_obj.page,
+        limit: pagy_obj.limit,
+        pages: pagy_obj.pages,
+        previous: pagy_obj.previous,
+        next: pagy_obj.next,
+        from: from,
+        to: to
       }
     }
   end
@@ -42,6 +59,7 @@ class Api::ClipsController < ApplicationController
       channel_label: tx.channel_label,
       freq_hz: tx.freq_hz,
       started_at: tx.started_at,
+      duration_sec: tx.duration_sec,
       status: tx.status,
       asr_text: tx.asr_text,
       final_text: tx.final_text

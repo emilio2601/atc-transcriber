@@ -19,6 +19,18 @@ const STATUS_ORDER = [
   "skipped",
 ]
 
+function formatDuration(seconds) {
+  if (!(seconds >= 0)) return ""
+  const s = Number(seconds)
+  if (s < 60) {
+    const value = s < 10 ? s.toFixed(1) : Math.round(s).toString()
+    return `${value}s`
+  }
+  const mins = Math.floor(s / 60)
+  const secs = Math.round(s % 60)
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
 function StatusBadge({ status }) {
   const label = STATUS_LABELS[status] || status
   let base =
@@ -53,9 +65,12 @@ function StatusBadge({ status }) {
 
 export default function App() {
   const [clips, setClips] = useState([])
+  const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const [per, setPer] = useState(100)
   const [currentClipId, setCurrentClipId] = useState(null)
   const [audioError, setAudioError] = useState(null)
   const audioRef = useRef(null)
@@ -63,10 +78,26 @@ export default function App() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch("/api/clips?status=all&limit=300")
+        const params = new URLSearchParams()
+        if (statusFilter && statusFilter !== "all") {
+          params.set("status", statusFilter)
+        } else {
+          params.set("status", "all")
+        }
+        params.set("page", String(page))
+        params.set("per", String(per))
+
+        const res = await fetch(`/api/clips?${params.toString()}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
-        setClips(data)
+        if (Array.isArray(data.items)) {
+          setClips(data.items)
+          setMeta(data.meta || null)
+        } else {
+          // Backcompat if server returns array
+          setClips(data)
+          setMeta(null)
+        }
       } catch (err) {
         setError(err.message)
       } finally {
@@ -74,12 +105,7 @@ export default function App() {
       }
     }
     load()
-  }, [])
-
-  const filteredClips =
-    statusFilter === "all"
-      ? clips
-      : clips.filter((c) => c.status === statusFilter)
+  }, [statusFilter, page, per])
 
   async function handlePlay(clipId) {
     setAudioError(null)
@@ -120,18 +146,37 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 py-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-slate-400">
-            Showing{" "}
-            <span className="font-semibold text-slate-200">
-              {filteredClips.length}
-            </span>{" "}
-            of {clips.length} recent clips
+            {meta ? (
+              <>
+                Showing{" "}
+                <span className="font-semibold text-slate-200">
+                  {meta.from}–{meta.to}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-slate-200">
+                  {meta.count}
+                </span>{" "}
+                recent clips
+              </>
+            ) : (
+              <>
+                Showing{" "}
+                <span className="font-semibold text-slate-200">
+                  {clips.length}
+                </span>{" "}
+                recent clips
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-1.5 text-[10px]">
             {STATUS_ORDER.map((status) => (
               <button
                 key={status}
-                onClick={() => setStatusFilter(status)}
+                onClick={() => {
+                  setStatusFilter(status)
+                  setPage(1)
+                }}
                 className={`px-2 py-0.5 rounded-full border transition-colors ${
                   statusFilter === status
                     ? "bg-emerald-500 text-slate-950 border-emerald-400"
@@ -147,6 +192,40 @@ export default function App() {
             ))}
           </div>
         </div>
+        {meta && (
+          <div className="mb-3 flex items-center gap-2 text-[10px] text-slate-400">
+            <button
+              disabled={!meta.previous}
+              onClick={() => meta.previous && setPage(meta.previous)}
+              className={`px-2 py-0.5 rounded border ${
+                meta.previous
+                  ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500"
+                  : "bg-slate-900/40 text-slate-600 border-slate-800 cursor-not-allowed"
+              }`}
+            >
+              Prev
+            </button>
+            <span>
+              Page{" "}
+              <span className="font-semibold text-slate-200">{meta.page}</span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-200">
+                {meta.pages}
+              </span>
+            </span>
+            <button
+              disabled={!meta.next}
+              onClick={() => meta.next && setPage(meta.next)}
+              className={`px-2 py-0.5 rounded border ${
+                meta.next
+                  ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500"
+                  : "bg-slate-900/40 text-slate-600 border-slate-800 cursor-not-allowed"
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        )}
 
         {loading && (
           <div className="text-xs text-slate-400">Loading clips…</div>
@@ -164,16 +243,17 @@ export default function App() {
           </div>
         )}
 
-        {!loading && !error && filteredClips.length === 0 && (
+        {!loading && !error && clips.length === 0 && (
           <div className="mt-4 text-xs text-slate-400">
             No clips match this filter yet.
           </div>
         )}
 
         <ul className="mt-2 space-y-2">
-          {filteredClips.map((c) => {
+          {clips.map((c) => {
             const freqMHz = typeof c.freq_hz === "number" ? (c.freq_hz / 1e6).toFixed(3) : ""
             const timeLabel = c.started_at ? new Date(c.started_at).toLocaleString() : ""
+            const durationLabel = typeof c.duration_sec === "number" ? formatDuration(c.duration_sec) : ""
             const text = c.final_text || c.asr_text || ""
             const isCurrent = currentClipId === c.id
 
@@ -199,6 +279,11 @@ export default function App() {
                     <StatusBadge status={c.status} />
                   </div>
                   <div className="flex items-center gap-2">
+                    {durationLabel && (
+                      <span className="text-[10px] text-slate-400">
+                        {durationLabel}
+                      </span>
+                    )}
                     <span className="text-[10px] text-slate-500">
                       {timeLabel}
                     </span>
