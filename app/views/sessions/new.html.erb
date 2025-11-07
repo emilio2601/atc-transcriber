@@ -1,0 +1,49 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+  <div class="w-full max-w-lg bg-slate-900/95 border border-slate-800/80 rounded-2xl px-5 py-5 shadow-2xl shadow-black/60">
+    <div class="mb-3">
+      <div class="text-[9px] font-semibold uppercase tracking-[0.22em] text-emerald-400">
+        airband
+      </div>
+      <h1 class="mt-1 text-base font-semibold text-slate-100">
+        Sign in to ATC Transcriber
+      </h1>
+      <p class="mt-1 text-[10px] text-slate-400">
+        Private interface for reviewing and listening to recorded clips.
+      </p>
+    </div>
+
+    <% if flash[:alert] %>
+      <div class="mb-3 rounded-md bg-red-900/40 border border-red-500/40 px-3 py-2 text-[10px] text-red-100">
+        <%= flash[:alert] %>
+      </div>
+    <% elsif flash[:notice] %>
+      <div class="mb-3 rounded-md bg-emerald-900/30 border border-emerald-500/40 px-3 py-2 text-[10px] text-emerald-100">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <%= form_with url: login_path, method: :post, local: true, class: "space-y-3" do |f| %>
+      <div>
+        <label class="block text-[9px] uppercase tracking-[0.16em] text-slate-400 mb-1">
+          Email
+        </label>
+        <%= f.email_field :email,
+              autofocus: true,
+              class: "w-full bg-slate-950/90 border border-slate-800 rounded-md px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition" %>
+      </div>
+
+      <div>
+        <label class="block text-[9px] uppercase tracking-[0.16em] text-slate-400 mb-1">
+          Password
+        </label>
+        <%= f.password_field :password,
+              class: "w-full bg-slate-950/90 border border-slate-800 rounded-md px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition" %>
+      </div>
+
+      <div class="flex items-center justify-between pt-1">
+        <%= f.submit "Sign in",
+              class: "px-3 py-1.5 text-[10px] rounded-md bg-emerald-500 text-slate-950 font-medium hover:bg-emerald-400 active:bg-emerald-500 transition-colors" %>
+      </div>
+    <% end %>
+  </div>
+</div>

@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* React / Vite frontend */
+@source "../entrypoints/**/*.{js,jsx,ts,tsx}";
+@source "../components/**/*.{js,jsx,ts,tsx}";
+
+/* Rails views (login, etc.) */
+@source "../../views/**/*.{html,html.erb,erb}";
