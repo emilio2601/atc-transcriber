@@ -1,21 +1,21 @@
 class Api::ClipsController < ApplicationController
   protect_from_forgery with: :null_session
+  before_action :require_login
 
   # GET /api/clips
-  # Optional:
-  #   ?status=asr_done
-  #   ?limit=50
+  # ?status=all            -> all statuses
+  # ?status=asr_done       -> only that status
+  # (no status param)      -> default: asr_done + finalized
   def index
     scope = Transmission.all
 
-    if params[:status].present?
+    if params[:status].present? && params[:status] != "all"
       scope = scope.where(status: params[:status])
-    else
-      # by default, show things that at least have ASR text
+    elsif !params[:status].present?
       scope = scope.where(status: %w[asr_done finalized])
     end
 
-    limit = (params[:limit] || 50).to_i.clamp(1, 500)
+    limit = (params[:limit] || 200).to_i.clamp(1, 1000)
     scope = scope.order(started_at: :desc).limit(limit)
 
     render json: scope.map { |tx|
@@ -64,5 +64,16 @@ class Api::ClipsController < ApplicationController
       final_text: tx.final_text,
       finalized_at: tx.finalized_at
     }
+  end
+
+  # GET /api/clips/:id/audio
+  def audio
+    tx = Transmission.find(params[:id])
+
+    # you can add simple guards here:
+    # head :not_found and return unless tx.object_key&.end_with?(".mp3")
+
+    url = R2.presigned_url(tx.object_key, expires_in: 600)
+    render json: { audio_url: url }
   end
 end
