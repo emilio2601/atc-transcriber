@@ -20,7 +20,8 @@ RUN apt-get update -qq && \
       curl \
       libjemalloc2 \
       libvips \
-      postgresql-client && \
+      postgresql-client \
+      ffmpeg && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -47,7 +48,7 @@ RUN apt-get update -qq && \
 # Install Node.js (for Vite / npx)
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get update -qq && \
-    apt-get install --no-install-recommends -y nodejs && \
+    apt-get install --no-i  nstall-recommends -y nodejs && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install application gems
