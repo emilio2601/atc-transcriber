@@ -10,7 +10,7 @@ class TransmissionDurationJob < ApplicationJob
     # Resolve ffprobe once per job run; exit early if unavailable
     @ffprobe_path = which_ffprobe
     unless @ffprobe_path
-      Rails.logger.error "[TransmissionDurationJob] Aborting: ffprobe not available"
+      Rails.logger.error "Aborting: ffprobe not available"
       return
     end
 
@@ -31,12 +31,12 @@ class TransmissionDurationJob < ApplicationJob
     duration = probe_duration(url)
     if duration
       transmission.update!(duration_sec: duration)
-      Rails.logger.info "[TransmissionDurationJob] Updated #{transmission.object_key} duration=#{duration.round(3)}s"
+      Rails.logger.info "Updated #{transmission.object_key} duration=#{duration.round(3)}s"
     else
-      Rails.logger.warn "[TransmissionDurationJob] Could not determine duration for #{transmission.object_key}"
+      Rails.logger.warn "Could not determine duration for #{transmission.object_key}"
     end
   rescue => e
-    Rails.logger.error "[TransmissionDurationJob] Error processing #{transmission.object_key}: #{e.class}: #{e.message}"
+    Rails.logger.error "Error processing #{transmission.object_key}: #{e.class}: #{e.message}"
   end
 
   def probe_duration(url)
@@ -91,7 +91,7 @@ class TransmissionDurationJob < ApplicationJob
       end
     end
 
-    Rails.logger.error "[TransmissionDurationJob] ffprobe not found on PATH"
+    Rails.logger.error "ffprobe not found on PATH"
     nil
   end
 end

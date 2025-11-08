@@ -17,7 +17,7 @@ class R2SyncJob < ApplicationJob
         continuation_token: continuation_token
       )
 
-      Rails.logger.info "[R2SyncJob] Found #{resp.contents.size} objects"
+      Rails.logger.info "Found #{resp.contents.size} objects"
 
       resp.contents.each do |obj|
         key = obj.key
@@ -33,7 +33,7 @@ class R2SyncJob < ApplicationJob
         begin
           attrs = Transmission.parse_object_key(key)
         rescue => e
-          Rails.logger.warn "[R2SyncJob] Skipping #{key}: #{e.class}: #{e.message}"
+          Rails.logger.warn "Skipping #{key}: #{e.class}: #{e.message}"
           next
         end
 
@@ -54,6 +54,6 @@ class R2SyncJob < ApplicationJob
       continuation_token = resp.next_continuation_token
     end
 
-    Rails.logger.info "[R2SyncJob] Imported #{imported} new, skipped #{skipped} existing"
+    Rails.logger.info "Imported #{imported} new, skipped #{skipped} existing"
   end
 end

@@ -78,6 +78,23 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
+  config.lograge.enabled = true
+
+  # One dense line, key=value style
+  config.lograge.formatter = Lograge::Formatters::KeyValue.new
+
+  # Optional but nice: don’t spam params
+  config.lograge.ignore_nothing
+
+  # Add a couple useful fields
+  config.lograge.custom_options = lambda do |event|
+    {
+      request_id: event.payload[:request_id],
+      user_id:    event.payload[:user_id],
+      remote_ip:  event.payload[:remote_ip]
+    }
+  end
+
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
   #   "example.com",     # Allow requests from example.com

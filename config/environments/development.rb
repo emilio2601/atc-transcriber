@@ -78,4 +78,8 @@ Rails.application.configure do
 
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.logger = ActiveSupport::TaggedLogging.logger(STDOUT)
+
+  config.lograge.enabled = true
+  config.lograge.formatter = Lograge::Formatters::KeyValue.new
+  config.lograge.keep_original_rails_log = false # or true if you want both
 end
