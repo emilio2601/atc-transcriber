@@ -7,6 +7,7 @@ Rails.application.routes.draw do
     namespace :asr do
       post "next",   to: "jobs#next_job"
       post "result", to: "jobs#submit_result"
+      get "sample", to: "jobs#sample"
     end
 
     # Public-ish API for your UI

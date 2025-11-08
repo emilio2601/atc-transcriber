@@ -90,9 +90,54 @@ class Api::Asr::JobsController < ApplicationController
     end
   end
 
+  # GET /api/asr/sample
+  # Returns a random clip with a presigned URL, WITHOUT changing status.
+  # Auth: Bearer ASR_WORKER_TOKEN
+  #
+  # Response (if found):
+  # {
+  #   "id": 123,
+  #   "object_key": "...",
+  #   "audio_url": "<presigned>",
+  #   "channel_label": "JFK_135.900_Dep",
+  #   "freq_hz": 135900000,
+  #   "started_at": "2025-11-07T18:26:53Z",
+  #   "asr_text": "existing text if any",
+  #   "sandbox": true
+  # }
+  #
+  # If none:
+  # { "job": nil }
+  #
+  def sample
+    scope = Transmission.where.not(object_key: nil)
+
+    tx = scope.order(Arel.sql("RANDOM()")).first
+
+    unless tx
+      render json: { job: nil }
+      return
+    end
+
+    audio_url = R2.presigned_url(tx.object_key, expires_in: 600)
+
+    render json: {
+      id: tx.id,
+      object_key: tx.object_key,
+      audio_url: audio_url,
+      channel_label: tx.channel_label,
+      freq_hz: tx.freq_hz,
+      started_at: tx.started_at,
+      asr_text: tx.asr_text,
+      sandbox: true
+    }
+  end
+
   private
 
   def authenticate_worker!
+    return true if Rails.env.development?
+
     token = request.authorization.to_s.sub(/^Bearer\s+/i, "")
     expected = ENV["ASR_WORKER_TOKEN"].to_s
 
