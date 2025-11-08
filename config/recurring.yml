@@ -18,7 +18,7 @@ production:
     schedule: every hour at minute 12
   transmission_duration:
     class: TransmissionDurationJob
-    schedule: every hour at minute 12
+    schedule: every hour at minute 15
 
 development:
   r2_sync:
