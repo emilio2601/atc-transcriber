@@ -42,3 +42,4 @@ node_modules
 *.local
 
 .asr_sandbox_cache
+.asr_cache
