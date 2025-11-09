@@ -11,21 +11,20 @@ import time
 import json
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
-from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 from faster_whisper import WhisperModel
 
-load_dotenv() 
+load_dotenv()
 
 @dataclass
 class Config:
     api_base: str
     api_token: str
-    whisper_model: str = "medium"
+    whisper_models: List[str]
     whisper_device: str = "cpu"
-    whisper_compute: str = "float16"
+    whisper_compute: str = "int8"   # good default for fast CPU (Apple Silicon)
     whisper_language: Optional[str] = "en"
     audio_cache_dir: str = ".asr_sandbox_cache"
     timeout: int = 30
@@ -39,16 +38,25 @@ class Config:
             print("[sandbox] Missing ASR_WORKER_TOKEN / ATC_API_TOKEN in env", file=sys.stderr)
             sys.exit(1)
 
+        # Allow override: WHISPER_MODELS="medium,large-v3,distil-large-v3"
+        models_env = os.environ.get("WHISPER_MODELS")
+        if models_env:
+            whisper_models = [m.strip() for m in models_env.split(",") if m.strip()]
+        else:
+            # Sensible benchmarks for your M4 Max:
+            whisper_models = ["medium", "large-v3", "distil-large-v3"]
+
         return cls(
             api_base=api_base,
             api_token=api_token,
-            whisper_model=os.environ.get("WHISPER_MODEL", "medium"),
+            whisper_models=whisper_models,
             whisper_device=os.environ.get("WHISPER_DEVICE", "cpu"),
-            whisper_compute=os.environ.get("WHISPER_COMPUTE_TYPE", "float16"),
+            whisper_compute=os.environ.get("WHISPER_COMPUTE_TYPE", "int8"),
             whisper_language=os.environ.get("WHISPER_LANGUAGE", "en"),
             audio_cache_dir=os.environ.get("AUDIO_CACHE_DIR", ".asr_sandbox_cache"),
             timeout=int(os.environ.get("ATC_API_TIMEOUT", "30")),
         )
+
 
 def http_get_json(url: str, cfg: Config) -> Dict[str, Any]:
     resp = requests.get(
@@ -64,12 +72,12 @@ def fetch_sample_job(cfg: Config) -> Optional[Dict[str, Any]]:
     url = f"{cfg.api_base}/api/asr/sample"
     data = http_get_json(url, cfg)
 
-    # Support both { job: {...} } and direct object forms.
+    # Support { job: {...} } or direct object
     if isinstance(data, dict) and "job" in data:
         job = data["job"]
         return job if job else None
 
-    if "id" in data and "audio_url" in data:
+    if isinstance(data, dict) and "id" in data and "audio_url" in data:
         return data
 
     print("[sandbox] Unexpected /api/asr/sample response:", data, file=sys.stderr)
@@ -98,21 +106,22 @@ def download_audio(job: Dict[str, Any], cfg: Config) -> str:
     return path
 
 
-def load_model(cfg: Config) -> WhisperModel:
+def load_model(model_name: str, cfg: Config) -> WhisperModel:
     print(
-        f"[sandbox] Loading faster-whisper model='{cfg.whisper_model}' "
+        f"[sandbox] Loading model='{model_name}' "
         f"device='{cfg.whisper_device}' compute_type='{cfg.whisper_compute}'"
     )
     return WhisperModel(
-        cfg.whisper_model,
+        model_name,
         device=cfg.whisper_device,
         compute_type=cfg.whisper_compute,
     )
 
 
-def transcribe(path: str, cfg: Config, model: WhisperModel) -> Dict[str, Any]:
-    print(f"[sandbox] Transcribing {path}")
+def transcribe(path: str, cfg: Config, model: WhisperModel, model_name: str) -> Dict[str, Any]:
+    print(f"[sandbox:{model_name}] Transcribing {path}")
     start = time.time()
+
     segments_iter, info = model.transcribe(
         path,
         language=cfg.whisper_language,
@@ -172,6 +181,7 @@ def transcribe(path: str, cfg: Config, model: WhisperModel) -> Dict[str, Any]:
 
     elapsed = time.time() - start
 
+    duration = getattr(info, "duration", None)
     avg_logprob = (total_logprob / logprob_count) if logprob_count else None
     avg_compression_ratio = (
         sum(compression_ratios) / len(compression_ratios)
@@ -181,9 +191,15 @@ def transcribe(path: str, cfg: Config, model: WhisperModel) -> Dict[str, Any]:
     max_no_speech = max(no_speech_probs) if no_speech_probs else None
 
     text = "".join(seg["text"] for seg in segments).strip()
-    duration = getattr(info, "duration", None)
+
+    # Real-time factor (X × real-time)
+    if duration and elapsed > 0:
+        rtf = duration / elapsed
+    else:
+        rtf = None
 
     return {
+        "model": model_name,
         "text": text,
         "duration_sec": duration,
         "language": getattr(info, "language", None),
@@ -193,43 +209,32 @@ def transcribe(path: str, cfg: Config, model: WhisperModel) -> Dict[str, Any]:
         "asr_compression_ratio": avg_compression_ratio,
         "asr_no_speech_prob": max_no_speech,
         "asr_speech_duration_sec": speech_duration,
-        "asr_speech_ratio": (speech_duration / duration) if duration else None,
+        "asr_speech_ratio": (speech_duration / duration) if (duration and duration > 0) else None,
         "elapsed_ms": int(elapsed * 1000),
-        "model": cfg.whisper_model,
-        "device": cfg.whisper_device,
-        "compute_type": cfg.whisper_compute,
+        "rtf": rtf,  # X × real-time
     }
 
 
 def main():
     cfg = Config.from_env()
     print(f"[sandbox] Using API base: {cfg.api_base}")
+    print(f"[sandbox] Models under test: {', '.join(cfg.whisper_models)}")
 
     job = fetch_sample_job(cfg)
     if not job:
         print("[sandbox] No sample job available (job=nil).", file=sys.stderr)
         sys.exit(0)
 
-    print("[sandbox] Got sample job:")
-    print(
-        json.dumps(
-            {
-                k: job.get(k)
-                for k in (
-                    "id",
-                    "object_key",
-                    "channel_label",
-                    "freq_hz",
-                    "started_at",
-                    "sandbox",
-                    "asr_text",
-                )
-                if k in job
-            },
-            indent=2,
-            default=str,
-        )
-    )
+    # Print basic job info + URL so you can listen & sanity-check
+    print("\n[sandbox] Got sample job metadata:")
+    job_preview = {
+        k: job.get(k)
+        for k in ("id", "object_key", "channel_label", "freq_hz", "started_at", "sandbox", "asr_text")
+        if k in job
+    }
+    print(json.dumps(job_preview, indent=2, default=str))
+    if "audio_url" in job:
+        print(f"[sandbox] Audio URL (for listening): {job['audio_url']}")
 
     try:
         audio_path = download_audio(job, cfg)
@@ -237,40 +242,68 @@ def main():
         print(f"[sandbox] ERROR downloading audio: {e}", file=sys.stderr)
         sys.exit(1)
 
-    try:
-        model = load_model(cfg)
-    except Exception as e:
-        print(f"[sandbox] ERROR loading model: {e}", file=sys.stderr)
-        sys.exit(1)
+    results = []
 
-    try:
-        result = transcribe(audio_path, cfg, model)
-    except Exception as e:
-        print(f"[sandbox] ERROR during transcription: {e}", file=sys.stderr)
-        sys.exit(1)
+    for model_name in cfg.whisper_models:
+        try:
+            model = load_model(model_name, cfg)
+        except Exception as e:
+            print(f"[sandbox:{model_name}] ERROR loading model: {e}", file=sys.stderr)
+            continue
 
-    print("\n[sandbox] === TRANSCRIPTION (preview) ===")
-    print(result["text"])
+        try:
+            res = transcribe(audio_path, cfg, model, model_name)
+        except Exception as e:
+            print(f"[sandbox:{model_name}] ERROR during transcription: {e}", file=sys.stderr)
+            continue
 
-    print("\n[sandbox] === METRICS ===")
-    metrics = {
-        "duration_sec": result["duration_sec"],
-        "speech_duration_sec": result["asr_speech_duration_sec"],
-        "speech_ratio": result["asr_speech_ratio"],
-        "avg_logprob": result["asr_avg_logprob"],
-        "avg_compression_ratio": result["asr_compression_ratio"],
-        "no_speech_prob_max": result["asr_no_speech_prob"],
-        "elapsed_ms": result["elapsed_ms"],
-        "model": result["model"],
-        "device": result["device"],
-        "compute_type": result["compute_type"],
-        "segment_count": len(result["segments"]),
-    }
-    print(json.dumps(metrics, indent=2, default=str))
+        results.append(res)
 
-    # If you want detailed segment JSON, uncomment:
-    # print("\n[sandbox] === SEGMENTS JSON ===")
-    # print(json.dumps(result["segments"], indent=2, default=str))
+        # Per-model detailed output
+        print(f"\n[sandbox:{model_name}] === TRANSCRIPTION PREVIEW ===")
+        # Short preview so you can eyeball quality quickly
+        preview = (res["text"] or "").strip()
+        if len(preview) > 500:
+            preview = preview[:500] + " ..."
+        print(preview if preview else "[no text]")
+
+        # Metrics
+        rtf = res["rtf"]
+        rtf_str = f"{rtf:.2f}x" if rtf is not None else "n/a"
+        print(f"\n[sandbox:{model_name}] === METRICS ===")
+        metrics = {
+            "duration_sec": res["duration_sec"],
+            "elapsed_ms": res["elapsed_ms"],
+            "rtf_x_real_time": rtf_str,
+            "speech_duration_sec": res["asr_speech_duration_sec"],
+            "speech_ratio": res["asr_speech_ratio"],
+            "avg_logprob": res["asr_avg_logprob"],
+            "avg_compression_ratio": res["asr_compression_ratio"],
+            "no_speech_prob_max": res["asr_no_speech_prob"],
+            "segment_count": len(res["segments"]),
+        }
+        print(json.dumps(metrics, indent=2, default=str))
+
+    # Summary across models
+    print("\n[sandbox] === SUMMARY ACROSS MODELS ===")
+    if not results:
+        print("[sandbox] No successful runs.")
+        return
+
+    summary = []
+    for r in results:
+        rtf = r["rtf"]
+        summary.append(
+            {
+                "model": r["model"],
+                "duration_sec": r["duration_sec"],
+                "elapsed_ms": r["elapsed_ms"],
+                "rtf_x_real_time": round(rtf, 2) if rtf is not None else None,
+                "speech_ratio": r["asr_speech_ratio"],
+                "avg_logprob": r["asr_avg_logprob"],
+            }
+        )
+    print(json.dumps(summary, indent=2, default=str))
 
 
 if __name__ == "__main__":
