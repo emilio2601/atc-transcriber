@@ -16,6 +16,7 @@ Rails.application.routes.draw do
         get :audio
       end
     end
+    resources :channels, only: [ :index ]
   end
 
   mount MissionControl::Jobs::Engine, at: "/jobs"

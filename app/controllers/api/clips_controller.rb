@@ -15,6 +15,10 @@ class Api::ClipsController < ApplicationController
       scope = scope.where(status: %w[asr_done finalized])
     end
 
+    if params[:channel].present?
+      scope = scope.where(channel_label: params[:channel])
+    end
+
     per = (params[:per] || params[:limit] || 50).to_i.clamp(1, 1000)
     scope = scope.order(started_at: :desc)
     pagy_obj, records = pagy(scope, limit: per)
