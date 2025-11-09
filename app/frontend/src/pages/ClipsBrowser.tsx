@@ -183,7 +183,7 @@ export default function ClipsBrowser() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 text-[10px]">
+        <div className="flex flex-wrap gap-1.5 text-xs">
           {STATUS_ORDER.map((status) => (
             <button
               key={status}
@@ -191,7 +191,7 @@ export default function ClipsBrowser() {
                 setStatusFilter(status)
                 setPage(1)
               }}
-              className={`px-2 py-0.5 rounded-full border transition-colors ${
+            className={`px-2 py-0.5 rounded-full border transition-colors ${
                 statusFilter === status
                   ? "bg-emerald-500 text-slate-950 border-emerald-400"
                   : status === "all"
@@ -207,7 +207,7 @@ export default function ClipsBrowser() {
         </div>
       </div>
       {meta && (
-        <div className="mb-3 flex items-center gap-2 text-[10px] text-slate-400">
+        <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">
           <button
             disabled={!meta.previous}
             onClick={() => meta.previous && setPage(meta.previous)}
@@ -252,7 +252,7 @@ export default function ClipsBrowser() {
       )}
 
       {audioError && (
-        <div className="mb-3 rounded-md bg-red-900/30 px-3 py-2 text-[10px] text-red-200">
+        <div className="mb-3 rounded-md bg-red-900/30 px-3 py-2 text-xs text-red-200">
           {audioError}
         </div>
       )}
@@ -285,7 +285,7 @@ export default function ClipsBrowser() {
                     {c.channel_label || "Unknown"}
                   </span>
                   {freqMHz && (
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                    <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
                       {freqMHz} MHz
                     </span>
                   )}
@@ -293,16 +293,16 @@ export default function ClipsBrowser() {
                 </div>
                 <div className="flex items-center gap-2">
                   {durationLabel && (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-xs text-slate-400">
                       {durationLabel}
                     </span>
                   )}
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-xs text-slate-500">
                     {timeLabel}
                   </span>
                   <button
                     onClick={() => handlePlay(c.id)}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-400 transition-colors"
+                    className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-400 transition-colors"
                   >
                     {isCurrent ? "▶︎ Playing" : "▶︎ Play"}
                   </button>

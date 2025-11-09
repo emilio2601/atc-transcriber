@@ -1,16 +1,30 @@
+function getCsrfToken(): string | undefined {
+  if (typeof document === "undefined") return undefined
+  const el = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+  return el?.content
+}
+
 export class ApiClient {
   constructor(private readonly baseUrl: string = "") {}
 
   async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
     const url = this.buildUrl(path, params)
-    const res = await fetch(url, { credentials: "same-origin" })
+    const res = await fetch(url, {
+      credentials: "same-origin",
+      headers: { "Accept": "application/json" },
+    })
     return this.handleJson<T>(res)
   }
 
   async post<T>(path: string, body?: unknown): Promise<T> {
+    const csrf = getCsrfToken()
     const res = await fetch(this.buildUrl(path), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+      },
       credentials: "same-origin",
       body: body ? JSON.stringify(body) : undefined,
     })
@@ -18,9 +32,14 @@ export class ApiClient {
   }
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
+    const csrf = getCsrfToken()
     const res = await fetch(this.buildUrl(path), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+      },
       credentials: "same-origin",
       body: body ? JSON.stringify(body) : undefined,
     })

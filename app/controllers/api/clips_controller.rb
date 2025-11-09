@@ -35,6 +35,7 @@ class Api::ClipsController < ApplicationController
           freq_hz: tx.freq_hz,
           started_at: tx.started_at,
           duration_sec: tx.duration_sec,
+          ignored: tx.ignored,
           status: tx.status,
           asr_text: tx.asr_text,
           final_text: tx.final_text
@@ -64,6 +65,7 @@ class Api::ClipsController < ApplicationController
       freq_hz: tx.freq_hz,
       started_at: tx.started_at,
       duration_sec: tx.duration_sec,
+      ignored: tx.ignored,
       status: tx.status,
       asr_text: tx.asr_text,
       final_text: tx.final_text
@@ -77,11 +79,13 @@ class Api::ClipsController < ApplicationController
 
     tx.final_text = params[:final_text] if params.key?(:final_text)
     tx.status = params[:status] if params.key?(:status)
+    tx.ignored = params[:ignored] if params.key?(:ignored)
     tx.finalized_at = Time.current if tx.status == "finalized" && tx.final_text.present?
     tx.save!
 
     render json: {
       id: tx.id,
+      ignored: tx.ignored,
       status: tx.status,
       final_text: tx.final_text,
       finalized_at: tx.finalized_at

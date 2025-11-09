@@ -20,7 +20,7 @@ export default function SegmentedControl<T extends string>({
             key={seg.value}
             onClick={() => onChange(seg.value)}
             className={[
-              "px-4 py-1.5 text-[11px] rounded-lg transition-colors",
+              "px-4 py-1.5 text-sm rounded-lg transition-colors",
               selected
                 ? "bg-emerald-500 text-slate-950"
                 : "text-slate-300 hover:text-emerald-300 hover:bg-slate-800",

@@ -34,11 +34,11 @@ export default function ChannelSelector() {
 
   return (
     <div className="rounded-xl border border-slate-800 p-3 flex items-center gap-2">
-      <span className="text-[10px] uppercase tracking-widest text-slate-400">Channel</span>
+      <span className="text-sm uppercase tracking-widest text-emerald-400">Channel</span>
       <select
         value={currentChannel || (options[0]?.id ?? "")}
         onChange={(e) => setChannel(e.target.value)}
-        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200"
         disabled={loading}
       >
         {options.map(o => (

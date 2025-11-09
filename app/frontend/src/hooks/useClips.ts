@@ -8,17 +8,20 @@ type UseClipsParams = {
   page?: number
   per?: number
   channel?: string | null
+  version?: number
   filters?: {
     showIgnored?: boolean
     showOnlyUnlabeled?: boolean
   }
 }
 
-export function useClips({ status = "asr_done", page = 1, per = 200, channel = null, filters = {} }: UseClipsParams = {}) {
+export function useClips({ status = "asr_done", page = 1, per = 200, channel = null, version = 0, filters = {} }: UseClipsParams = {}) {
   const [clips, setClips] = useState<Transmission[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<ApiListResponse<Transmission>["meta"] | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
+  const [list, setList] = useState<Transmission[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +48,7 @@ export function useClips({ status = "asr_done", page = 1, per = 200, channel = n
         }
         filtered.sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
         setClips(filtered)
+        setList(items)
         // @ts-expect-error tolerate array response shape
         setMeta(res.meta || null)
       } catch (e: any) {
@@ -56,9 +60,17 @@ export function useClips({ status = "asr_done", page = 1, per = 200, channel = n
     }
     load()
     return () => { cancelled = true }
-  }, [status, page, per, channel, filters.showIgnored, filters.showOnlyUnlabeled])
+  }, [status, page, per, channel, filters.showIgnored, filters.showOnlyUnlabeled, reloadTick, version])
 
-  return { clips, isLoading, error, meta }
+  const reload = () => setReloadTick((t) => t + 1)
+  const removeClip = (id: number) => {
+    setClips((prev) => prev.filter((c) => c.id !== id))
+  }
+  const updateClipLocal = (id: number, patch: Partial<Transmission>) => {
+    setClips((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  }
+
+  return { clips, isLoading, error, meta, reload, removeClip, updateClipLocal }
 }
 
 
