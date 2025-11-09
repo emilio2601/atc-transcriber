@@ -419,12 +419,16 @@ CREATE TABLE public.transmissions (
     status character varying DEFAULT 'pending_asr'::character varying NOT NULL,
     asr_model character varying,
     asr_text text,
-    asr_confidence double precision,
+    asr_avg_logprob double precision,
     asr_completed_at timestamp(6) without time zone,
     final_text text,
     finalized_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    asr_compression_ratio double precision,
+    asr_no_speech_prob double precision,
+    asr_speech_ratio double precision,
+    asr_error text
 );
 
 
@@ -880,6 +884,27 @@ CREATE INDEX index_solid_queue_semaphores_on_key_and_value ON public.solid_queue
 
 
 --
+-- Name: index_transmissions_on_asr_avg_logprob; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_transmissions_on_asr_avg_logprob ON public.transmissions USING btree (asr_avg_logprob);
+
+
+--
+-- Name: index_transmissions_on_asr_model; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_transmissions_on_asr_model ON public.transmissions USING btree (asr_model);
+
+
+--
+-- Name: index_transmissions_on_asr_speech_ratio; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_transmissions_on_asr_speech_ratio ON public.transmissions USING btree (asr_speech_ratio);
+
+
+--
 -- Name: index_transmissions_on_channel_label_and_started_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -962,6 +987,7 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20251109003457'),
 ('20251107214027'),
 ('20251107204435'),
 ('20251107201346');
