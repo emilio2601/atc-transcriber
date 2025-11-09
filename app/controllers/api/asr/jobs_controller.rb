@@ -52,41 +52,58 @@ class Api::Asr::JobsController < ApplicationController
 
   # POST /api/asr/result
   #
-  # Body:
-  #   {
-  #     "id": 123,
-  #     "asr_text": "raw whisper output",
-  #     "status": "asr_done" | "finalized" | "asr_failed" (optional),
-  #     "error": "optional error message if failed"
-  #   }
+  # JSON body:
+  # {
+  #   "id": 123,
+  #   "asr_text": "raw whisper output",
+  #   "asr_model": "large-v3-int8",
+  #   "asr_avg_logprob": -0.42,
+  #   "asr_compression_ratio": 1.8,
+  #   "asr_no_speech_prob": 0.12,
+  #   "asr_speech_ratio": 0.42,
+  #   "status": "asr_done" | "finalized" | "asr_failed" | "skipped" (optional),
+  #   "error": "optional error message if failed"
+  # }
   #
   def submit_result
-    tx = Transmission.find_by(id: params[:id])
+    tx = Transmission.find(params[:id])
 
     unless tx
       render json: { error: "not_found" }, status: :not_found
       return
     end
 
-    # Only accept results if it was in progress or pending
     unless %w[asr_in_progress pending_asr].include?(tx.status)
-      render json: { error: "invalid_state", current_status: tx.status }, status: :unprocessable_entity
+      render json: { error: "invalid_state", current_status: tx.status },
+             status: :unprocessable_entity
       return
     end
 
     if params[:error].present?
-      tx.status = "asr_failed"
-      # you can add a column like asr_error if you want to store this
+      # Hard failure for this item
+      update_attrs = {
+        status: "asr_failed",
+        asr_error: params[:error].to_s
+      }
     else
-      tx.asr_text = params[:asr_text].to_s if params[:asr_text]
-      tx.status   = params[:status].presence || "asr_done"
+      update_attrs = result_params
+
+      # Default status if not provided
+      update_attrs[:status] ||= "asr_done"
+
+      # Only stamp completion time on success-ish outcomes
+      if %w[asr_done finalized].include?(update_attrs[:status])
+        update_attrs[:asr_completed_at] ||= Time.current
+      end
     end
 
-    if tx.save
+    if tx.update(update_attrs)
       render json: { ok: true }
     else
-      render json: { error: "validation_failed", messages: tx.errors.full_messages },
-             status: :unprocessable_entity
+      render json: {
+        error: "validation_failed",
+        messages: tx.errors.full_messages
+      }, status: :unprocessable_entity
     end
   end
 
@@ -134,6 +151,18 @@ class Api::Asr::JobsController < ApplicationController
   end
 
   private
+
+  def result_params
+    params.permit(
+      :asr_text,
+      :asr_model,
+      :asr_avg_logprob,
+      :asr_compression_ratio,
+      :asr_no_speech_prob,
+      :asr_speech_ratio,
+      :status
+    )
+  end
 
   def authenticate_worker!
     return true if Rails.env.development?
