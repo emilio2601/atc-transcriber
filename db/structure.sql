@@ -428,7 +428,8 @@ CREATE TABLE public.transmissions (
     asr_compression_ratio double precision,
     asr_no_speech_prob double precision,
     asr_speech_ratio double precision,
-    asr_error text
+    asr_error text,
+    ignored boolean DEFAULT false NOT NULL
 );
 
 
@@ -912,6 +913,13 @@ CREATE INDEX index_transmissions_on_channel_label_and_started_at ON public.trans
 
 
 --
+-- Name: index_transmissions_on_ignored; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_transmissions_on_ignored ON public.transmissions USING btree (ignored);
+
+
+--
 -- Name: index_transmissions_on_object_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -987,6 +995,7 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20251109013515'),
 ('20251109003457'),
 ('20251107214027'),
 ('20251107204435'),
