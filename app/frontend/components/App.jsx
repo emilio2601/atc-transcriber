@@ -19,6 +19,15 @@ const STATUS_ORDER = [
   "skipped",
 ]
 
+function parseInitialParams() {
+  const usp = new URLSearchParams(window.location.search)
+  const rawStatus = usp.get("status") || "all"
+  const status = STATUS_ORDER.includes(rawStatus) ? rawStatus : "all"
+  const page = Math.max(1, parseInt(usp.get("page") || "1", 10) || 1)
+  const per = Math.max(1, Math.min(1000, parseInt(usp.get("per") || "100", 10) || 100))
+  return { status, page, per }
+}
+
 function formatDuration(seconds) {
   if (!(seconds >= 0)) return ""
   const s = Number(seconds)
@@ -68,9 +77,10 @@ export default function App() {
   const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [page, setPage] = useState(1)
-  const [per, setPer] = useState(100)
+  const initial = typeof window !== "undefined" ? parseInitialParams() : { status: "all", page: 1, per: 100 }
+  const [statusFilter, setStatusFilter] = useState(initial.status)
+  const [page, setPage] = useState(initial.page)
+  const [per, setPer] = useState(initial.per)
   const [currentClipId, setCurrentClipId] = useState(null)
   const [audioError, setAudioError] = useState(null)
   const audioRef = useRef(null)
@@ -106,6 +116,28 @@ export default function App() {
     }
     load()
   }, [statusFilter, page, per])
+
+  useEffect(() => {
+    const usp = new URLSearchParams(window.location.search)
+    usp.set("status", statusFilter || "all")
+    usp.set("page", String(page))
+    usp.set("per", String(per))
+    const newSearch = `?${usp.toString()}`
+    if (window.location.search !== newSearch) {
+      window.history.pushState(null, "", newSearch)
+    }
+  }, [statusFilter, page, per])
+
+  useEffect(() => {
+    function onPopState() {
+      const { status, page: p, per: pr } = parseInitialParams()
+      setStatusFilter(status)
+      setPage(p)
+      setPer(pr)
+    }
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  }, [])
 
   async function handlePlay(clipId) {
     setAudioError(null)
