@@ -129,19 +129,45 @@ class APIClient:
         resp.raise_for_status()
         return resp.json()["channels"]
 
-    def get_transmissions(self, channel: str, status: str = "pending_asr", limit: int = 100) -> List[Dict]:
-        """Get transmissions for a channel."""
-        resp = self.session.get(
-            f"{self.cfg.api_base}/api/clips",
-            params={
-                "channel": channel,
-                "status": "all",  # Get any status to maximize sample pool
-                "per": limit
-            },
-            timeout=self.cfg.timeout
-        )
-        resp.raise_for_status()
-        return resp.json()["items"]
+    def get_transmissions(self, channel: str, limit: int = 1000) -> List[Dict]:
+        """
+        Get transmissions for a channel using multiple paginated requests
+        to ensure representative sampling across time.
+        """
+        all_transmissions = []
+        pages_to_fetch = 5  # Fetch 5 pages to get diverse time coverage
+        per_page = max(50, limit // pages_to_fetch)
+
+        for page in range(1, pages_to_fetch + 1):
+            try:
+                resp = self.session.get(
+                    f"{self.cfg.api_base}/api/clips",
+                    params={
+                        "channel": channel,
+                        "status": "all",  # Get any status to maximize sample pool
+                        "per": per_page,
+                        "page": page
+                    },
+                    timeout=self.cfg.timeout
+                )
+                resp.raise_for_status()
+                items = resp.json()["items"]
+
+                if not items:
+                    break
+
+                all_transmissions.extend(items)
+
+                # Check if we've reached the end
+                meta = resp.json().get("meta", {})
+                if page >= meta.get("pages", 0):
+                    break
+
+            except Exception as e:
+                print(f"[api] Warning: Error fetching page {page}: {e}", file=sys.stderr)
+                break
+
+        return all_transmissions
 
     def get_audio_url(self, transmission_id: int) -> str:
         """Get presigned URL for audio file."""
@@ -322,34 +348,106 @@ def analyze_audio_file(file_path: Path, transmission_id: int, channel_label: str
 
 def sample_transmissions(transmissions: List[Dict], n: int) -> List[Dict]:
     """
-    Sample N transmissions stratified by duration to get diverse samples.
+    Sample N transmissions using stratified random sampling for representativeness.
+
+    Strategy:
+    1. Stratify by time (different hours to capture traffic patterns)
+    2. Within each time stratum, stratify by duration
+    3. Randomly sample from each stratum
+
+    This ensures we get:
+    - Transmissions from different times (avoiding temporal bias)
+    - Mix of short/medium/long transmissions (duration diversity)
+    - True randomness within constraints (not just first/last/evenly-spaced)
     """
     if len(transmissions) <= n:
         return transmissions
 
-    # Sort by duration
-    sorted_tx = sorted(transmissions, key=lambda x: x.get("duration_sec", 0))
+    # Parse timestamps and add metadata
+    from datetime import datetime
+    for tx in transmissions:
+        try:
+            dt = datetime.fromisoformat(tx["started_at"].replace("Z", "+00:00"))
+            tx["_hour"] = dt.hour
+            tx["_date"] = dt.date()
+        except:
+            tx["_hour"] = 0
+            tx["_date"] = None
 
-    # Sample evenly across duration range
-    indices = np.linspace(0, len(sorted_tx) - 1, n, dtype=int)
-    return [sorted_tx[i] for i in indices]
+    # Group by hour of day (0-23)
+    hour_buckets = {}
+    for tx in transmissions:
+        hour = tx.get("_hour", 0)
+        if hour not in hour_buckets:
+            hour_buckets[hour] = []
+        hour_buckets[hour].append(tx)
+
+    # Determine how many samples per hour bucket
+    num_hours = len(hour_buckets)
+    samples_per_hour = max(1, n // num_hours)
+    remaining = n - (samples_per_hour * num_hours)
+
+    selected = []
+
+    # Sample from each hour bucket
+    for hour in sorted(hour_buckets.keys()):
+        bucket = hour_buckets[hour]
+
+        # How many to take from this bucket
+        take = samples_per_hour
+        if remaining > 0:
+            take += 1
+            remaining -= 1
+
+        # Stratify by duration within this hour
+        if len(bucket) <= take:
+            selected.extend(bucket)
+        else:
+            # Sort by duration
+            sorted_bucket = sorted(bucket, key=lambda x: x.get("duration_sec", 0))
+
+            # Sample evenly across duration range with some randomness
+            # Use linspace for stratification but add small random offset
+            base_indices = np.linspace(0, len(sorted_bucket) - 1, take)
+
+            # Add random jitter within stratum (±10% of stratum width)
+            stratum_width = len(sorted_bucket) / take
+            jitter_range = stratum_width * 0.1
+
+            indices = []
+            for idx in base_indices:
+                jittered = idx + np.random.uniform(-jitter_range, jitter_range)
+                jittered = int(np.clip(jittered, 0, len(sorted_bucket) - 1))
+                indices.append(jittered)
+
+            # Remove duplicates, sort, and select
+            indices = sorted(set(indices))[:take]
+            selected.extend([sorted_bucket[i] for i in indices])
+
+    # Trim to exactly n samples if we went over
+    if len(selected) > n:
+        selected = selected[:n]
+
+    return selected
 
 
 def analyze_channel(api: APIClient, cfg: Config, channel: str) -> Optional[ChannelQualityReport]:
     """Analyze all samples for a channel."""
     print(f"\n[analyze] Analyzing channel: {channel}")
 
-    # Get transmissions
-    print(f"[analyze] Fetching transmissions...")
-    transmissions = api.get_transmissions(channel, limit=200)
+    # Get transmissions (fetches multiple pages for time diversity)
+    print(f"[analyze] Fetching transmissions from API...")
+    transmissions = api.get_transmissions(channel)
 
     if not transmissions:
         print(f"[analyze] No transmissions found for {channel}")
         return None
 
-    # Sample stratified by duration
+    print(f"[analyze] Fetched {len(transmissions)} total transmissions")
+
+    # Sample using stratified random sampling (time + duration)
     samples = sample_transmissions(transmissions, cfg.samples_per_channel)
-    print(f"[analyze] Selected {len(samples)} samples")
+    print(f"[analyze] Selected {len(samples)} samples (stratified by time and duration)")
 
     # Download and analyze
     metrics: List[AudioQualityMetrics] = []

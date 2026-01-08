@@ -79,6 +79,7 @@ RECOMMENDATION: Focus on N90_134.900_LGA_Final
 - **Speed**: ~2-5 minutes for 150-200 files (vs 30+ minutes for ASR)
 - **Cache**: Downloads cached in `.channel_analysis_cache/`
 - **Parallel**: Uses streaming downloads for efficiency
+- **Data Coverage**: Fetches ~250 transmissions per channel across multiple pages for time diversity
 
 ## How It Works
 
@@ -91,9 +92,18 @@ score = (SNR × 0.40) + (Spectral × 0.25) + (Energy × 0.20) +
 
 ### Sampling Strategy
 
-- Samples stratified by duration (short/medium/long transmissions)
-- Ensures diverse representation across traffic patterns
-- Default: 25 samples per channel (adjustable with `--samples`)
+**Stratified Random Sampling** for representative results:
+
+1. **Temporal Stratification** - Samples from different hours of the day to capture traffic pattern variations
+2. **Duration Stratification** - Within each time period, samples short/medium/long transmissions
+3. **Random Selection** - Adds jitter within strata to avoid systematic bias
+
+This ensures:
+- Coverage across different times (morning/afternoon/evening/night)
+- Mix of transmission types (short snippets vs long conversations)
+- Statistically representative of typical channel conditions
+
+Default: 25 samples per channel (adjustable with `--samples`)
 
 ## Authentication
 
