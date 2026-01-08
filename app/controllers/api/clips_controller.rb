@@ -1,6 +1,8 @@
 class Api::ClipsController < ApplicationController
+  include ApiAuthentication
+
   protect_from_forgery with: :null_session
-  before_action :require_login
+  before_action :authenticate_api!
 
   # GET /api/clips
   # ?status=all            -> all statuses

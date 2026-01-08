@@ -1,6 +1,8 @@
 class Api::ChannelsController < ApplicationController
+  include ApiAuthentication
+
   protect_from_forgery with: :null_session
-  before_action :require_login
+  before_action :authenticate_api!
 
   # GET /api/channels
   def index
@@ -10,6 +12,7 @@ class Api::ChannelsController < ApplicationController
       .order(:channel_label)
 
     render json: {
+      channels: rows.map(&:channel_label),
       items: rows.map { |r|
         {
           id: r.channel_label,
