@@ -1,9 +1,10 @@
-#!/usr/bin/env -S uv run
+#!/usr/bin/env -S uv run --no-project
 # /// script
 # dependencies = [
 #   "watchdog",
 #   "requests",
 #   "minio",
+#   "python-dotenv",
 # ]
 # ///
 """
@@ -13,7 +14,19 @@ Watches the airband recordings directory and immediately uploads new files to R2
 and notifies the Rails API for transcription processing.
 
 Usage:
-    uv run script/airband_realtime_sync.py
+    uv run --no-project script/airband_realtime_sync.py
+
+    Or make executable and run directly:
+    chmod +x script/airband_realtime_sync.py
+    ./script/airband_realtime_sync.py
+
+Configuration:
+    The script loads environment variables from .env file in this order:
+    1. script/.env (in the script directory)
+    2. .env (in current working directory)
+    3. ~/.config/airband-sync.env
+
+    Copy script/airband-sync.env.example to one of these locations and configure.
 
 Environment variables:
     AIRBAND_RECORDINGS_DIR   - Directory to watch (default: ~/airband-recordings)
@@ -53,6 +66,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import requests
 from minio import Minio
+from dotenv import load_dotenv
 
 
 class AirbandUploader(FileSystemEventHandler):
@@ -247,6 +261,24 @@ class AirbandUploader(FileSystemEventHandler):
 
 
 def main():
+    # Load environment variables from .env file
+    # Try multiple locations in order
+    script_dir = Path(__file__).parent
+    env_locations = [
+        script_dir / ".env",
+        Path.cwd() / ".env",
+        Path.home() / ".config" / "airband-sync.env",
+    ]
+
+    for env_file in env_locations:
+        if env_file.exists():
+            print(f"Loading environment from: {env_file}")
+            load_dotenv(env_file)
+            break
+    else:
+        # No .env file found, will use existing environment variables
+        pass
+
     # Load configuration from environment
     base_dir = os.getenv("AIRBAND_RECORDINGS_DIR", os.path.expanduser("~/airband-recordings"))
     r2_endpoint = os.getenv("R2_ENDPOINT")
