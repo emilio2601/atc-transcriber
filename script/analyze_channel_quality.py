@@ -402,8 +402,8 @@ def sample_transmissions(transmissions: List[Dict], n: int) -> List[Dict]:
         if len(bucket) <= take:
             selected.extend(bucket)
         else:
-            # Sort by duration
-            sorted_bucket = sorted(bucket, key=lambda x: x.get("duration_sec", 0))
+            # Sort by duration (handle None values)
+            sorted_bucket = sorted(bucket, key=lambda x: x.get("duration_sec") or 0)
 
             # Sample evenly across duration range with some randomness
             # Use linspace for stratification but add small random offset
