@@ -1,14 +1,23 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+# /// script
+# dependencies = [
+#   "watchdog",
+# ]
+# ///
 """
 Test script to monitor filesystem events and understand airband file writing patterns.
 
 Usage:
-    python script/test_file_watcher.py /path/to/airband-recordings
+    uv run script/test_file_watcher.py /path/to/airband-recordings
 
 This will print all filesystem events to help determine:
 - Which event signals file completion (created, modified, closed)
 - Whether files are written atomically or incrementally
 - If we need stabilization delays
+
+Prerequisites:
+    - Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh
+    - uv will automatically install dependencies on first run
 """
 
 import sys
@@ -84,9 +93,9 @@ class VerboseEventHandler(FileSystemEventHandler):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python script/test_file_watcher.py <directory_to_watch>")
+        print("Usage: uv run script/test_file_watcher.py <directory_to_watch>")
         print("\nExample:")
-        print("  python script/test_file_watcher.py ~/airband-recordings")
+        print("  uv run script/test_file_watcher.py ~/airband-recordings")
         sys.exit(1)
 
     watch_path = sys.argv[1]
