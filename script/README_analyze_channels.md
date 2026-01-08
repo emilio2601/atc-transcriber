@@ -85,10 +85,24 @@ RECOMMENDATION: Focus on N90_134.900_LGA_Final
 
 ### Composite Quality Score
 
+**Simplified scoring focused on what matters:**
+
 ```
-score = (SNR × 0.40) + (Spectral × 0.25) + (Energy × 0.20) +
-        (1-Clipping × 0.10) + (1-Silence × 0.05)
+score = (SNR × 0.80) + (Spectral × 0.20)
 ```
+
+**Why this weighting?**
+
+For ATC radio with good equipment:
+- **SNR (80%)** - The primary discriminator. Signal-to-noise ratio directly determines audio clarity and transcription accuracy.
+- **Spectral (20%)** - Secondary check for speech-like characteristics.
+
+**Metrics removed from scoring:**
+- **Silence ratio** - Natural speech pauses (25-35% is normal), not a quality issue
+- **Clipping** - Modern equipment rarely clips (all channels at 0%)
+- **Energy consistency** - All channels show stable signals (~0.98)
+
+These are still measured and reported but don't affect the score since they don't discriminate between channels.
 
 ### Sampling Strategy
 

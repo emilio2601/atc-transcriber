@@ -15,11 +15,9 @@ This script samples transmissions from each channel, downloads audio files,
 and analyzes them using signal processing metrics to determine the clearest channel.
 
 Quality metrics:
-- Signal-to-Noise Ratio (SNR)
-- Spectral characteristics (centroid, rolloff, flatness)
-- Energy consistency
-- Clipping detection
-- Silence ratio
+- Signal-to-Noise Ratio (SNR) - Primary metric (80% of score)
+- Spectral characteristics - Secondary metric (20% of score)
+- Energy consistency, clipping, silence - Measured but not scored (don't discriminate)
 
 Usage:
     python script/analyze_channel_quality.py
@@ -310,18 +308,19 @@ def analyze_audio_file(file_path: Path, transmission_id: int, channel_label: str
         silence = calculate_silence_ratio(audio, sr)
 
         # Calculate composite score
-        snr_norm = min(1.0, max(0.0, (snr + 10) / 40)) if snr is not None else 0.5  # Map -10 to 30 dB to 0-1
+        # SNR is the primary quality indicator - normalize to 0-1 scale
+        # Typical ATC: 10-30 dB range. Use 10-35 dB mapping for better spread.
+        snr_norm = min(1.0, max(0.0, (snr - 10) / 25)) if snr is not None else 0.3  # Map 10-35 dB to 0-1
         spectral_score = calculate_spectral_score(spectral)
 
         # Energy consistency: prefer moderate variance (too low = dead air, too high = fading)
         energy_consistency = 1.0 / (1.0 + energy_variance * 10)
 
+        # Simplified quality score: SNR dominates (80%), spectral is secondary (20%)
+        # Silence, clipping, and energy are all normal/identical across good ATC equipment
         quality_score = (
-            snr_norm * 0.40 +
-            spectral_score * 0.25 +
-            energy_consistency * 0.20 +
-            (1 - clipping) * 0.10 +
-            (1 - silence) * 0.05
+            snr_norm * 0.80 +
+            spectral_score * 0.20
         )
 
         return AudioQualityMetrics(
@@ -523,21 +522,22 @@ def print_report(reports: List[ChannelQualityReport]):
     print("CHANNEL QUALITY ANALYSIS REPORT")
     print("="*90)
     print()
+    print("Scoring: SNR (80%) + Spectral (20%)")
+    print("Note: Silence/clipping/energy shown for reference but don't affect score")
+    print()
 
     # Summary table
-    print(f"{'Rank':<6} {'Channel':<25} {'Score':<10} {'SNR(dB)':<10} {'Spectral':<10} {'Energy':<10} {'Issues':<15}")
+    print(f"{'Rank':<6} {'Channel':<25} {'Score':<10} {'SNR(dB)':<10} {'Spectral':<10} {'Silence':<10}")
     print("-" * 90)
 
     for i, report in enumerate(sorted_reports, 1):
-        issues = f"{report.avg_clipping_ratio*100:.1f}% clip, {report.avg_silence_ratio*100:.0f}% silence"
         print(
             f"{i:<6} "
             f"{report.channel_label:<25} "
             f"{report.quality_score:.2f}/1.0  "
             f"{report.avg_snr_db:>6.1f}    "
             f"{report.avg_spectral_score:>6.2f}    "
-            f"{report.avg_energy_consistency:>6.2f}    "
-            f"{issues:<15}"
+            f"{report.avg_silence_ratio*100:>6.0f}%"
         )
 
     print()
