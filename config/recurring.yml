@@ -15,7 +15,9 @@ production:
     schedule: every hour at minute 12
   r2_sync:
     class: R2SyncJob
-    schedule: every hour at minute 12
+    # Reduced to weekly since real-time push handles most ingestion
+    # Acts as safety net to catch any missed files
+    schedule: every sunday at 4am
   transmission_duration:
     class: TransmissionDurationJob
     schedule: every hour at minute 15
@@ -23,7 +25,8 @@ production:
 development:
   r2_sync:
     class: R2SyncJob
-    schedule: every 1 minute
+    # Reduced frequency since real-time push handles ingestion
+    schedule: every 10 minutes
   transmission_duration:
     class: TransmissionDurationJob
-    schedule: every 1 minute
+    schedule: every 10 minutes
