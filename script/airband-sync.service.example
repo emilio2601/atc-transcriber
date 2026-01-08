@@ -22,7 +22,8 @@ WorkingDirectory=/home/emilio/atc-transcriber
 EnvironmentFile=/home/emilio/.config/airband-sync.env
 
 # Use --no-project to avoid loading project dependencies
-ExecStart=/home/emilio/.cargo/bin/uv run --no-project /home/emilio/atc-transcriber/script/airband_realtime_sync.py
+# Note: Update path to uv if different (run: which uv)
+ExecStart=/home/emilio/.local/bin/uv run --no-project /home/emilio/atc-transcriber/script/airband_realtime_sync.py
 
 # Restart policy
 Restart=always
