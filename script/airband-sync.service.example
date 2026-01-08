@@ -39,6 +39,8 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/emilio/airband-recordings
+ReadWritePaths=/home/emilio/.cache/uv
+ReadWritePaths=/home/emilio/.local/share/uv
 
 # Resource limits
 LimitNOFILE=65536

@@ -125,6 +125,8 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=${AIRBAND_RECORDINGS_DIR:-/home/$USER/airband-recordings}
+ReadWritePaths=/home/$USER/.cache/uv
+ReadWritePaths=/home/$USER/.local/share/uv
 
 # Resource limits
 LimitNOFILE=65536
