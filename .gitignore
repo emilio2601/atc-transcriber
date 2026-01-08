@@ -43,3 +43,7 @@ node_modules
 
 .asr_sandbox_cache
 .asr_cache
+.channel_analysis_cache
+
+# Ignore MP3 files in cache directories
+**/*_cache/**/*.mp3
