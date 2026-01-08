@@ -10,6 +10,9 @@ Rails.application.routes.draw do
       get "sample", to: "jobs#sample"
     end
 
+    # Ingest endpoint for Pi uploader
+    post "ingest", to: "ingest#create"
+
     # Public-ish API for your UI
     resources :clips, only: [ :index, :show, :update ] do
       member do
