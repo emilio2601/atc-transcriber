@@ -1,31 +1,47 @@
 # Systemd service for airband real-time sync
 #
-# Installation:
-#   1. Copy this file: sudo cp airband-sync.service.example /etc/systemd/system/airband-sync.service
-#   2. Edit paths and user: sudo nano /etc/systemd/system/airband-sync.service
-#   3. Create env file: cp airband-sync.env.example ~/.config/airband-sync.env
-#   4. Edit env file: nano ~/.config/airband-sync.env
-#   5. Reload systemd: sudo systemctl daemon-reload
-#   6. Enable on boot: sudo systemctl enable airband-sync
-#   7. Start service: sudo systemctl start airband-sync
-#   8. Check status: sudo systemctl status airband-sync
-#   9. View logs: sudo journalctl -u airband-sync -f
+# Installation (see SETUP.md for full instructions):
+#   1. Edit this file and update User and paths
+#   2. sudo cp airband-sync.service.example /etc/systemd/system/airband-sync.service
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable airband-sync
+#   5. sudo systemctl start airband-sync
+#   6. sudo systemctl status airband-sync
 
 [Unit]
 Description=Airband Real-time Recording Sync
+Documentation=https://github.com/your-repo/atc-transcriber
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=emilio
+Group=emilio
 WorkingDirectory=/home/emilio/atc-transcriber
 EnvironmentFile=/home/emilio/.config/airband-sync.env
-ExecStart=/home/emilio/.cargo/bin/uv run /home/emilio/atc-transcriber/script/airband_realtime_sync.py
+
+# Use --no-project to avoid loading project dependencies
+ExecStart=/home/emilio/.cargo/bin/uv run --no-project /home/emilio/atc-transcriber/script/airband_realtime_sync.py
+
+# Restart policy
 Restart=always
 RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=airband-sync
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/emilio/airband-recordings
+
+# Resource limits
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
