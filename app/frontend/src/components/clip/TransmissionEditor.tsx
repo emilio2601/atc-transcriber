@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useLabeling } from "../../context/LabelingContext"
+import { useAuth } from "../../context/AuthContext"
 import { useClips } from "../../hooks/useClips"
 import { useClip } from "../../hooks/useClip"
 import { useAudioUrl } from "../../hooks/useAudioUrl"
@@ -8,6 +9,7 @@ import { updateClip } from "../../api/clips"
 
 export default function TransmissionEditor() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const { loggedIn } = useAuth()
   const { currentChannel, filters, selectedClipId, bumpDataVersion } = useLabeling()
   const { clips, removeClip, updateClipLocal } = useClips({
     status: "asr_done",
@@ -127,39 +129,46 @@ export default function TransmissionEditor() {
       <div className="mt-3">
         <div className="flex items-center justify-between">
           <div className="text-xs uppercase tracking-widest text-slate-400 mb-1">Final</div>
-          <div className="text-xs text-slate-500">E: focus • ⌘/Ctrl+S: save</div>
+          {loggedIn ? (
+            <div className="text-xs text-slate-500">E: focus • ⌘/Ctrl+S: save</div>
+          ) : (
+            <a href="/login" className="text-xs text-emerald-400 hover:underline">Log in to edit</a>
+          )}
         </div>
         <textarea
           ref={textareaRef}
           value={finalText}
           onChange={(e) => setFinalText(e.target.value)}
-          className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-sm text-slate-200"
+          className={`w-full rounded border p-2 text-sm ${loggedIn ? "border-slate-700 bg-slate-900 text-slate-200" : "border-slate-800 bg-slate-900/50 text-slate-400 cursor-not-allowed"}`}
           rows={2}
+          disabled={!loggedIn}
         />
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          onClick={async () => { await save(true); goToNextClip(clips) }}
-          className="text-sm px-3 py-1 rounded border bg-emerald-600 text-slate-950 border-emerald-500"
-          title="Approve and finalize"
-        >
-          Approve ✓
-        </button>
-        <button
-          onClick={async () => { await save(false) }}
-          className="text-sm px-3 py-1 rounded border bg-slate-900 text-slate-200 border-slate-700 hover:border-slate-500"
-          title="Save"
-        >
-          Save 💾
-        </button>
-        <button
-          onClick={async () => { if (clip) await updateClip(clip.id, { ignored: !clip.ignored }) }}
-          className="text-sm px-3 py-1 rounded border bg-slate-900 text-slate-200 border-slate-700 hover:border-slate-500"
-          title="Toggle ignore (I)"
-        >
-          {clip.ignored ? "Unignore" : "Ignore"}
-        </button>
-      </div>
+      {loggedIn && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={async () => { await save(true); goToNextClip(clips) }}
+            className="text-sm px-3 py-1 rounded border bg-emerald-600 text-slate-950 border-emerald-500"
+            title="Approve and finalize"
+          >
+            Approve ✓
+          </button>
+          <button
+            onClick={async () => { await save(false) }}
+            className="text-sm px-3 py-1 rounded border bg-slate-900 text-slate-200 border-slate-700 hover:border-slate-500"
+            title="Save"
+          >
+            Save 💾
+          </button>
+          <button
+            onClick={async () => { if (clip) await updateClip(clip.id, { ignored: !clip.ignored }) }}
+            className="text-sm px-3 py-1 rounded border bg-slate-900 text-slate-200 border-slate-700 hover:border-slate-500"
+            title="Toggle ignore (I)"
+          >
+            {clip.ignored ? "Unignore" : "Ignore"}
+          </button>
+        </div>
+      )}
     </>
   )
 }
