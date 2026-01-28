@@ -1,5 +1,6 @@
 class SpaController < ApplicationController
-  before_action :require_login
-
-  def index; end
+  def index
+    @logged_in = logged_in?
+    @current_user_email = current_user&.email
+  end
 end

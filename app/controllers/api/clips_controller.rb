@@ -2,7 +2,7 @@ class Api::ClipsController < ApplicationController
   include ApiAuthentication
 
   protect_from_forgery with: :null_session
-  before_action :authenticate_api!
+  before_action :authenticate_api!, only: [:update]
 
   # GET /api/clips
   # ?status=all            -> all statuses

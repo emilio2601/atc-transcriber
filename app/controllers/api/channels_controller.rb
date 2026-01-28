@@ -1,8 +1,5 @@
 class Api::ChannelsController < ApplicationController
-  include ApiAuthentication
-
   protect_from_forgery with: :null_session
-  before_action :authenticate_api!
 
   # GET /api/channels
   def index
