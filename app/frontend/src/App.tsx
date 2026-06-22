@@ -7,13 +7,19 @@ export default function App() {
   const [view, setView] = useState<"browser" | "labeling">("browser")
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="relative min-h-screen text-ink">
+      {/* CRT scanline + vignette atmosphere */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-50 scanlines opacity-[0.35]" />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-40"
+        style={{ boxShadow: "inset 0 0 220px 40px rgba(0,0,0,0.6)" }}
+      />
+
       <TopBar view={view} onChangeView={setView} fullWidth={view === "labeling"} />
-      <main className={`mx-auto px-4 py-4 ${view === "labeling" ? "w-[90%]" : "max-w-6xl"}`}>
+      <main className={`relative mx-auto px-5 py-5 ${view === "labeling" ? "w-[94%]" : "max-w-6xl"}`}>
         {view === "browser" ? <ClipsBrowser /> : <LabelingApp />}
       </main>
     </div>
   )
 }
-
-

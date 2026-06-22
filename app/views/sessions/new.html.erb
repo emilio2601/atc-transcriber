@@ -1,48 +1,48 @@
-<div class="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-  <div class="w-full max-w-lg bg-slate-900/95 border border-slate-800/80 rounded-2xl px-5 py-5 shadow-2xl shadow-black/60">
-    <div class="mb-3">
-      <div class="text-[9px] font-semibold uppercase tracking-[0.22em] text-emerald-400">
-        airband
-      </div>
-      <h1 class="mt-1 text-base font-semibold text-slate-100">
-        Sign in to ATC Transcriber
-      </h1>
-      <p class="mt-1 text-[10px] text-slate-400">
-        Private interface for reviewing and listening to recorded clips.
-      </p>
+<div class="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
+  <div aria-hidden="true" class="pointer-events-none fixed inset-0 scanlines opacity-40"></div>
+  <div aria-hidden="true" class="pointer-events-none fixed inset-0" style="background: radial-gradient(60% 50% at 50% 40%, rgba(255,178,46,0.06), transparent 70%);"></div>
+
+  <div class="reveal panel corners w-full max-w-sm px-6 py-7">
+    <div class="flex items-center gap-2 mb-6">
+      <span class="live-dot inline-block h-2 w-2 rounded-full bg-signal"></span>
+      <span class="label-tag text-[11px] text-signal glow">AIRBAND</span>
+      <span class="ml-auto font-mono text-[10px] text-ink-faint tracking-[0.2em]">RX&nbsp;//&nbsp;SECURE</span>
     </div>
 
+    <h1 class="font-display text-lg font-semibold text-ink tracking-wide">
+      ATC&nbsp;TRANSCRIBER
+    </h1>
+    <p class="mt-1.5 font-mono text-[11px] leading-relaxed text-ink-dim">
+      Private console for reviewing and listening to recorded air-traffic clips.
+    </p>
+
     <% if flash[:alert] %>
-      <div class="mb-3 rounded-md bg-red-900/40 border border-red-500/40 px-3 py-2 text-[10px] text-red-100">
+      <div class="mt-5 rounded-md border border-fault-dim/60 bg-fault/10 px-3 py-2 font-mono text-[11px] text-fault">
         <%= flash[:alert] %>
       </div>
     <% elsif flash[:notice] %>
-      <div class="mb-3 rounded-md bg-emerald-900/30 border border-emerald-500/40 px-3 py-2 text-[10px] text-emerald-100">
+      <div class="mt-5 rounded-md border border-go-dim/60 bg-go/10 px-3 py-2 font-mono text-[11px] text-go">
         <%= flash[:notice] %>
       </div>
     <% end %>
 
-    <%= form_with url: login_path, method: :post, local: true, class: "space-y-3" do |f| %>
+    <%= form_with url: login_path, method: :post, local: true, class: "mt-6 space-y-4" do |f| %>
       <div>
-        <label class="block text-[9px] uppercase tracking-[0.16em] text-slate-400 mb-1">
-          Email
-        </label>
+        <label class="label-tag block text-[10px] text-ink-dim mb-1.5">Email</label>
         <%= f.email_field :email,
               autofocus: true,
-              class: "w-full bg-slate-950/90 border border-slate-800 rounded-md px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition" %>
+              class: "w-full panel-inset px-3 py-2 font-mono text-[13px] text-ink placeholder-ink-faint focus:outline-none focus:border-signal focus:ring-1 focus:ring-signal/40 transition" %>
       </div>
 
       <div>
-        <label class="block text-[9px] uppercase tracking-[0.16em] text-slate-400 mb-1">
-          Password
-        </label>
+        <label class="label-tag block text-[10px] text-ink-dim mb-1.5">Password</label>
         <%= f.password_field :password,
-              class: "w-full bg-slate-950/90 border border-slate-800 rounded-md px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition" %>
+              class: "w-full panel-inset px-3 py-2 font-mono text-[13px] text-ink placeholder-ink-faint focus:outline-none focus:border-signal focus:ring-1 focus:ring-signal/40 transition" %>
       </div>
 
-      <div class="flex items-center justify-between pt-1">
-        <%= f.submit "Sign in",
-              class: "px-3 py-1.5 text-[10px] rounded-md bg-emerald-500 text-slate-950 font-medium hover:bg-emerald-400 active:bg-emerald-500 transition-colors" %>
+      <div class="pt-1">
+        <%= f.submit "▸ SIGN IN",
+              class: "label-tag w-full cursor-pointer rounded-md bg-signal px-3 py-2.5 text-[12px] text-base font-semibold tracking-[0.18em] shadow-[0_0_18px_-4px_rgba(255,178,46,0.6)] hover:bg-[#ffc04f] active:translate-y-px transition" %>
       </div>
     <% end %>
   </div>

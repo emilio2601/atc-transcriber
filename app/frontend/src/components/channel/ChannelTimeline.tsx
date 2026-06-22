@@ -1,19 +1,10 @@
 import React, { useEffect } from "react"
 import { useLabeling } from "../../context/LabelingContext"
-import { useClips } from "../../hooks/useClips"
+import { SectionLabel, formatInt, cx } from "../../common/ui"
 
 export default function ChannelTimeline() {
-  const { currentChannel, filters, page, per, dataVersion, selectedClipId, setSelectedClip } = useLabeling()
-  const { clips, isLoading, error } = useClips({
-    status: "asr_done",
-    page,
-    per,
-    channel: currentChannel,
-    version: dataVersion,
-    filters,
-  })
+  const { clips, isLoading, loadError, selectedClipId, setSelectedClip } = useLabeling()
 
-  const items = clips
   useEffect(() => {
     if (!selectedClipId) return
     const el = document.querySelector(`[data-clip-id="${selectedClipId}"]`) as HTMLElement | null
@@ -22,39 +13,66 @@ export default function ChannelTimeline() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="text-sm uppercase tracking-widest text-emerald-400 pb-4">Timeline</div>
-      {isLoading && <div className="text-xs text-slate-500">Loading…</div>}
-      {error && <div className="text-xs text-red-300">Error: {error}</div>}
-      {!isLoading && !error && items.length === 0 && (
-        <div className="text-xs text-slate-500">No clips yet for this selection.</div>
+      <div className="flex items-center justify-between pb-3">
+        <SectionLabel>Timeline</SectionLabel>
+        <span className="font-mono text-[10px] text-ink-faint tabular-nums">
+          {formatInt(clips.length)} TX
+        </span>
+      </div>
+
+      {isLoading && <div className="font-mono text-[11px] text-ink-faint">Acquiring signal…</div>}
+      {loadError && <div className="font-mono text-[11px] text-fault">Error: {loadError}</div>}
+      {!isLoading && !loadError && clips.length === 0 && (
+        <div className="font-mono text-[11px] text-ink-faint">No clips yet for this selection.</div>
       )}
-      <div className="flex-1 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+
+      <div className="flex-1 overflow-y-auto pr-1">
         <ul className="space-y-1">
-          {items.map((c) => {
+          {clips.map((c) => {
             const isActive = c.id === selectedClipId
             const timeLabel = c.started_at ? new Date(c.started_at).toLocaleTimeString() : ""
+            const approved = !!c.final_text?.trim() || c.status === "finalized"
             return (
               <li key={c.id} data-clip-id={c.id}>
                 <button
+                  type="button"
                   onClick={() => setSelectedClip(c.id)}
-                  className={`w-full text-left px-3 py-2 rounded border transition-colors ${isActive ? "border-emerald-500/70 bg-slate-900" : "border-slate-800 bg-slate-900/50 hover:border-emerald-500/40"}`}
+                  className={cx(
+                    "group w-full rounded-md border px-3 py-2 text-left transition-colors",
+                    isActive
+                      ? "border-signal/70 bg-signal/[0.07]"
+                      : "border-edge bg-base-2/40 hover:border-signal/40"
+                  )}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-400 shrink-0">{timeLabel}</span>
-                    <span className="text-sm text-slate-200 truncate flex-1">
-                      {c.final_text || c.asr_text || ""}
+                    <span
+                      className={cx(
+                        "h-7 w-[3px] shrink-0 rounded-full",
+                        isActive ? "bg-signal" : approved ? "bg-go-dim" : "bg-edge-bright"
+                      )}
+                    />
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-faint">
+                      {timeLabel}
                     </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {c.final_text?.trim() || c.status === "finalized" ? (
-                        <span className="inline-flex items-center rounded-full border border-emerald-400/60 bg-emerald-900/30 px-2 py-[2px] text-xs text-emerald-200">
-                          Approved
+                    <span
+                      className={cx(
+                        "flex-1 truncate font-mono text-[13px]",
+                        c.final_text?.trim() ? "text-ink" : "text-ink-dim"
+                      )}
+                    >
+                      {c.final_text || c.asr_text || <span className="text-ink-faint italic">— no text —</span>}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {approved && (
+                        <span className="label-tag rounded-sm border border-go-dim bg-go/12 px-1.5 py-[2px] text-[9px] text-go">
+                          ✓
                         </span>
-                      ) : null}
-                      {c.ignored ? (
-                        <span className="inline-flex items-center rounded-full border border-red-400/60 bg-red-900/30 px-2 py-[2px] text-xs text-red-200">
-                          Ignored
+                      )}
+                      {c.ignored && (
+                        <span className="label-tag rounded-sm border border-fault-dim bg-fault/12 px-1.5 py-[2px] text-[9px] text-fault">
+                          IGN
                         </span>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 </button>
@@ -66,5 +84,3 @@ export default function ChannelTimeline() {
     </div>
   )
 }
-
-

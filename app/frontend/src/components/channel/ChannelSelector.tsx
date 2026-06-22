@@ -18,9 +18,9 @@ export default function ChannelSelector() {
         const res = await getChannels()
         if (cancelled) return
         const items: Channel[] = res.items || []
-        const opts: Option[] = items.map(c => ({ id: c.id, label: c.label }))
+        const opts: Option[] = items.map((c) => ({ id: c.id, label: c.label }))
         setOptions(opts)
-        // If no channel selected yet, default to the first available channel
+        // Default to the first available channel if none is selected yet.
         if (!currentChannel && opts.length > 0) {
           setChannel(opts[0].id)
         }
@@ -29,24 +29,35 @@ export default function ChannelSelector() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <div className="rounded-xl border border-slate-800 p-3 flex items-center gap-2">
-      <span className="text-sm uppercase tracking-widest text-emerald-400">Channel</span>
-      <select
-        value={currentChannel || (options[0]?.id ?? "")}
-        onChange={(e) => setChannel(e.target.value)}
-        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200"
-        disabled={loading}
-      >
-        {options.map(o => (
-          <option key={o.id} value={o.id}>{o.label}</option>
-        ))}
-      </select>
+    <div className="panel flex items-center gap-3 px-3 py-2">
+      <label htmlFor="channel-select" className="label-tag text-[11px] text-signal">
+        Channel
+      </label>
+      <div className="relative">
+        <select
+          id="channel-select"
+          value={currentChannel || options[0]?.id || ""}
+          onChange={(e) => setChannel(e.target.value)}
+          className="appearance-none rounded-md border border-edge-bright bg-base-2 pl-3 pr-8 py-1.5 font-mono text-[13px] text-ink focus:outline-none focus:border-signal focus:ring-1 focus:ring-signal/40 disabled:opacity-50 transition"
+          disabled={loading}
+        >
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-signal-dim">
+          ▾
+        </span>
+      </div>
     </div>
   )
 }
-
-

@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useRef } from "react"
+import { getClips, getClipAudioUrl } from "../api/clips"
+import type { Transmission } from "../types/transmission"
+import type { PaginationMeta } from "../types/api"
+import { StatusBadge, Pager, Freq, formatDuration, formatInt, SectionLabel, cx } from "../common/ui"
 
 const STATUS_LABELS: Record<string, string> = {
-  pending_asr: "Pending ASR",
-  asr_in_progress: "ASR in progress",
-  asr_done: "ASR done",
-  finalized: "Finalized",
-  asr_failed: "ASR failed",
-  skipped: "Skipped",
+  pending_asr: "Pending",
+  asr_in_progress: "RX",
+  asr_done: "Ready",
+  finalized: "Final",
+  asr_failed: "Fault",
+  skipped: "Skip",
 }
 
 const STATUS_ORDER = [
@@ -28,92 +32,41 @@ function parseInitialParams() {
   return { status, page, per }
 }
 
-function formatDuration(seconds: number | null | undefined) {
-  if (!(typeof seconds === "number" && seconds >= 0)) return ""
-  const s = Number(seconds)
-  if (s < 60) {
-    const value = s < 10 ? s.toFixed(1) : Math.round(s).toString()
-    return `${value}s`
-  }
-  const mins = Math.floor(s / 60)
-  const secs = Math.round(s % 60)
-  return `${mins}:${secs.toString().padStart(2, "0")}`
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const label = STATUS_LABELS[status] || status
-  let base =
-    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-  let theme = ""
-
-  switch (status) {
-    case "pending_asr":
-      theme = "bg-slate-800 text-slate-300 border border-slate-600"
-      break
-    case "asr_in_progress":
-      theme = "bg-blue-900/50 text-blue-200 border border-blue-500/60"
-      break
-    case "asr_done":
-      theme = "bg-emerald-900/40 text-emerald-300 border border-emerald-500/60"
-      break
-    case "finalized":
-      theme = "bg-emerald-600 text-slate-950"
-      break
-    case "asr_failed":
-      theme = "bg-red-900/60 text-red-200 border border-red-500/70"
-      break
-    case "skipped":
-      theme = "bg-slate-900 text-slate-400 border border-slate-700"
-      break
-    default:
-      theme = "bg-slate-800 text-slate-300"
-  }
-
-  return <span className={`${base} ${theme}`}>{label}</span>
-}
-
 export default function ClipsBrowser() {
-  const [clips, setClips] = useState<any[]>([])
-  const [meta, setMeta] = useState<any>(null)
+  const [clips, setClips] = useState<Transmission[]>([])
+  const [meta, setMeta] = useState<PaginationMeta | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const initial = typeof window !== "undefined" ? parseInitialParams() : { status: "all", page: 1, per: 100 }
+  const initial =
+    typeof window !== "undefined" ? parseInitialParams() : { status: "all", page: 1, per: 100 }
   const [statusFilter, setStatusFilter] = useState(initial.status)
   const [page, setPage] = useState(initial.page)
-  const [per, setPer] = useState(initial.per)
+  const [per] = useState(initial.per)
   const [currentClipId, setCurrentClipId] = useState<number | null>(null)
   const [audioError, setAudioError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setError(null)
       try {
-        const params = new URLSearchParams()
-        if (statusFilter && statusFilter !== "all") {
-          params.set("status", statusFilter)
-        } else {
-          params.set("status", "all")
-        }
-        params.set("page", String(page))
-        params.set("per", String(per))
-
-        const res = await fetch(`/api/clips?${params.toString()}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (Array.isArray(data.items)) {
-          setClips(data.items)
-          setMeta(data.meta || null)
-        } else {
-          setClips(data)
-          setMeta(null)
-        }
+        const res = await getClips({ status: statusFilter || "all", page, per })
+        if (cancelled) return
+        setClips(Array.isArray(res.items) ? res.items : (res as unknown as Transmission[]))
+        setMeta((res.meta as PaginationMeta) || null)
       } catch (err: any) {
-        setError(err.message)
+        if (cancelled) return
+        setError(err?.message || "Failed to load clips")
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => {
+      cancelled = true
+    }
   }, [statusFilter, page, per])
 
   useEffect(() => {
@@ -129,10 +82,9 @@ export default function ClipsBrowser() {
 
   useEffect(() => {
     function onPopState() {
-      const { status, page: p, per: pr } = parseInitialParams()
+      const { status, page: p } = parseInitialParams()
       setStatusFilter(status)
       setPage(p)
-      setPer(pr)
     }
     window.addEventListener("popstate", onPopState)
     return () => window.removeEventListener("popstate", onPopState)
@@ -141,192 +93,146 @@ export default function ClipsBrowser() {
   async function handlePlay(clipId: number) {
     setAudioError(null)
     setCurrentClipId(clipId)
-
     try {
-      const res = await fetch(`/api/clips/${clipId}/audio`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const { audio_url } = await res.json()
-
+      const { audio_url } = await getClipAudioUrl(clipId)
       if (!audioRef.current) return
       audioRef.current.src = audio_url
       await audioRef.current.play()
     } catch (err: any) {
       console.error(err)
-      setAudioError(`Could not play clip ${clipId}: ${err.message}`)
+      setAudioError(`Could not play clip ${clipId}: ${err?.message || "error"}`)
     }
   }
 
   return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-slate-400">
+    <div className="pb-24">
+      {/* Controls */}
+      <div className="reveal mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="font-mono text-[11px] text-ink-dim">
           {meta ? (
-            <>
-              Showing{" "}
-              <span className="font-semibold text-slate-200">
-                {meta.from}–{meta.to}
-              </span>{" "}
-              of{" "}
-              <span className="font-semibold text-slate-200">
-                {meta.count}
-              </span>{" "}
-              recent clips
-            </>
+            <span className="tabular-nums">
+              <span className="text-ink">{formatInt(meta.from)}–{formatInt(meta.to)}</span>
+              <span className="text-ink-faint"> of </span>
+              <span className="text-ink">{formatInt(meta.count)}</span> clips
+            </span>
           ) : (
-            <>
-              Showing{" "}
-              <span className="font-semibold text-slate-200">
-                {clips.length}
-              </span>{" "}
-              recent clips
-            </>
+            <span className="tabular-nums">
+              <span className="text-ink">{formatInt(clips.length)}</span> clips
+            </span>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 text-xs">
-          {STATUS_ORDER.map((status) => (
-            <button
-              key={status}
-              onClick={() => {
-                setStatusFilter(status)
-                setPage(1)
-              }}
-            className={`px-2 py-0.5 rounded-full border transition-colors ${
-                statusFilter === status
-                  ? "bg-emerald-500 text-slate-950 border-emerald-400"
-                  : status === "all"
-                  ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-400"
-                  : "bg-slate-900 text-slate-300 border-slate-800 hover:border-emerald-500/40"
-              }`}
-            >
-              {status === "all"
-                ? "All"
-                : STATUS_LABELS[status] || status}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_ORDER.map((status) => {
+            const active = statusFilter === status
+            return (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setStatusFilter(status)
+                  setPage(1)
+                }}
+                className={cx(
+                  "label-tag rounded-sm border px-2 py-1 text-[10px] transition-colors",
+                  active
+                    ? "border-signal bg-signal text-base"
+                    : "border-edge text-ink-dim hover:border-signal/50 hover:text-signal"
+                )}
+              >
+                {status === "all" ? "All" : STATUS_LABELS[status] || status}
+              </button>
+            )
+          })}
         </div>
       </div>
+
       {meta && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">
-          <button
-            disabled={!meta.previous}
-            onClick={() => meta.previous && setPage(meta.previous)}
-            className={`px-2 py-0.5 rounded border ${
-              meta.previous
-                ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500"
-                : "bg-slate-900/40 text-slate-600 border-slate-800 cursor-not-allowed"
-            }`}
-          >
-            Prev
-          </button>
-          <span>
-            Page{" "}
-            <span className="font-semibold text-slate-200">{meta.page}</span>{" "}
-            of{" "}
-            <span className="font-semibold text-slate-200">
-              {meta.pages}
-            </span>
-          </span>
-          <button
-            disabled={!meta.next}
-            onClick={() => meta.next && setPage(meta.next)}
-            className={`px-2 py-0.5 rounded border ${
-              meta.next
-                ? "bg-slate-900 text-slate-300 border-slate-700 hover:border-slate-500"
-                : "bg-slate-900/40 text-slate-600 border-slate-800 cursor-not-allowed"
-            }`}
-          >
-            Next
-          </button>
+        <div className="reveal mb-3 panel px-3 py-2">
+          <Pager meta={meta} onPage={setPage} />
         </div>
       )}
 
-      {loading && (
-        <div className="text-xs text-slate-400">Loading clips…</div>
-      )}
-
+      {loading && <div className="font-mono text-[11px] text-ink-faint">Acquiring signal…</div>}
       {error && (
-        <div className="mb-3 rounded-md bg-red-900/40 px-3 py-2 text-xs text-red-200">
+        <div className="mb-3 rounded-md border border-fault-dim bg-fault/10 px-3 py-2 font-mono text-[11px] text-fault">
           Error loading clips: {error}
         </div>
       )}
-
       {audioError && (
-        <div className="mb-3 rounded-md bg-red-900/30 px-3 py-2 text-xs text-red-200">
+        <div className="mb-3 rounded-md border border-fault-dim bg-fault/10 px-3 py-2 font-mono text-[11px] text-fault">
           {audioError}
         </div>
       )}
-
       {!loading && !error && clips.length === 0 && (
-        <div className="mt-4 text-xs text-slate-400">
-          No clips match this filter yet.
-        </div>
+        <div className="mt-4 font-mono text-[11px] text-ink-faint">No clips match this filter yet.</div>
       )}
 
-      <ul className="mt-2 space-y-2">
-        {clips.map((c) => {
-          const freqMHz = typeof c.freq_hz === "number" ? (c.freq_hz / 1e6).toFixed(3) : ""
+      <ul className="space-y-2">
+        {clips.map((c, i) => {
           const timeLabel = c.started_at ? new Date(c.started_at).toLocaleString() : ""
-          const durationLabel = typeof c.duration_sec === "number" ? formatDuration(c.duration_sec) : ""
+          const durationLabel = formatDuration(c.duration_sec)
           const isCurrent = currentClipId === c.id
-
           return (
             <li
               key={c.id}
-              className={`flex flex-col gap-1.5 rounded-xl border px-3 py-2.5 transition-colors ${
-                isCurrent
-                  ? "border-emerald-500/80 bg-slate-900"
-                  : "border-slate-800 bg-slate-900/60 hover:border-emerald-500/50"
-              }`}
+              className={cx(
+                "reveal panel px-3.5 py-2.5 transition-colors",
+                isCurrent ? "border-signal/70" : "hover:border-signal/40"
+              )}
+              style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-xs font-semibold text-emerald-400">
+                <div className="flex flex-wrap items-baseline gap-2.5">
+                  <span className="font-display text-[13px] font-semibold tracking-wide text-signal">
                     {c.channel_label || "Unknown"}
                   </span>
-                  {freqMHz && (
-                    <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      {freqMHz} MHz
-                    </span>
-                  )}
+                  {typeof c.freq_hz === "number" && <Freq hz={c.freq_hz} className="text-[12px]" />}
                   <StatusBadge status={c.status} />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   {durationLabel && (
-                    <span className="text-xs text-slate-400">
-                      {durationLabel}
-                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-ink-dim">{durationLabel}</span>
                   )}
-                  <span className="text-xs text-slate-500">
-                    {timeLabel}
-                  </span>
+                  <span className="font-mono text-[11px] tabular-nums text-ink-faint">{timeLabel}</span>
                   <button
+                    type="button"
                     onClick={() => handlePlay(c.id)}
-                    className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 border border-slate-600 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-400 transition-colors"
+                    aria-label={`Play clip ${c.id}`}
+                    className={cx(
+                      "label-tag rounded-sm border px-2 py-1 text-[10px] transition-colors",
+                      isCurrent
+                        ? "border-signal bg-signal text-base"
+                        : "border-edge-bright text-ink-dim hover:border-signal hover:text-signal"
+                    )}
                   >
-                    {isCurrent ? "▶︎ Playing" : "▶︎ Play"}
+                    {isCurrent ? "▶ Playing" : "▶ Play"}
                   </button>
                 </div>
               </div>
-              <div className="text-[11px] leading-snug text-slate-200">
-                {c.final_text || c.asr_text || ""}
+              <div className="mt-1.5 font-mono text-[12px] leading-snug text-ink-dim">
+                {c.final_text || c.asr_text || (
+                  <span className="text-ink-faint italic">— no text —</span>
+                )}
               </div>
             </li>
           )
         })}
       </ul>
 
-      <div className="fixed bottom-2 left-0 right-0 flex justify-center pointer-events-none">
-        <div className="pointer-events-auto w-full max-w-3xl rounded-xl bg-slate-900/95 border border-slate-700 px-3 py-2 shadow-lg">
-          <audio
-            ref={audioRef}
-            controls
-            className="w-full"
-          />
+      {/* Fixed transport bar */}
+      <div className="fixed bottom-3 left-0 right-0 z-30 flex justify-center px-4">
+        <div className="panel corners w-full max-w-3xl px-3 py-2 backdrop-blur-md">
+          <div className="mb-1 flex items-center gap-2">
+            <SectionLabel tone="dim" className="text-[9px]">Transport</SectionLabel>
+            {currentClipId && (
+              <span className="font-mono text-[10px] text-signal">CLIP #{currentClipId}</span>
+            )}
+          </div>
+          <audio ref={audioRef} controls className="w-full" />
         </div>
       </div>
     </div>
   )
 }
-
-

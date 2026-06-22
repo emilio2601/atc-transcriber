@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react"
 import { getClipAudioUrl } from "../api/clips"
 
-const cache = new Map<number, string>()
+// Presigned R2 URLs expire, so cache entries must too — otherwise replaying a
+// clip viewed earlier in a long session would 403 (#6).
+const TTL_MS = 50 * 60 * 1000
+const cache = new Map<number, { url: string; exp: number }>()
 
 export function useAudioUrl(clipId: number | null | undefined) {
   const [url, setUrl] = useState<string | null>(null)
@@ -15,12 +18,13 @@ export function useAudioUrl(clipId: number | null | undefined) {
       setLoading(true)
       setError(null)
       try {
-        if (cache.has(clipId)) {
-          setUrl(cache.get(clipId) || null)
+        const hit = cache.get(clipId)
+        if (hit && hit.exp > Date.now()) {
+          setUrl(hit.url)
         } else {
           const res = await getClipAudioUrl(clipId)
           if (cancelled) return
-          cache.set(clipId, res.audio_url)
+          cache.set(clipId, { url: res.audio_url, exp: Date.now() + TTL_MS })
           setUrl(res.audio_url)
         }
       } catch (e: any) {
@@ -31,10 +35,10 @@ export function useAudioUrl(clipId: number | null | undefined) {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [clipId])
 
   return { url, loading, error }
 }
-
-

@@ -1,4 +1,5 @@
 import React from "react"
+import { cx } from "./ui"
 
 type Segment<T extends string> = { value: T; label: string }
 
@@ -12,19 +13,21 @@ export default function SegmentedControl<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-emerald-500/50 bg-slate-900/60 p-1">
+    <div className="inline-flex rounded-md border border-edge-bright bg-base-2 p-0.5">
       {segments.map((seg) => {
         const selected = seg.value === value
         return (
           <button
             key={seg.value}
+            type="button"
+            aria-pressed={selected}
             onClick={() => onChange(seg.value)}
-            className={[
-              "px-4 py-1.5 text-sm rounded-lg transition-colors",
+            className={cx(
+              "label-tag rounded-[5px] px-4 py-1.5 text-[11px] transition-colors",
               selected
-                ? "bg-emerald-500 text-slate-950"
-                : "text-slate-300 hover:text-emerald-300 hover:bg-slate-800",
-            ].join(" ")}
+                ? "bg-signal text-base shadow-[0_0_14px_-4px_rgba(255,178,46,0.7)]"
+                : "text-ink-dim hover:text-signal"
+            )}
           >
             {seg.label}
           </button>
@@ -33,5 +36,3 @@ export default function SegmentedControl<T extends string>({
     </div>
   )
 }
-
-
