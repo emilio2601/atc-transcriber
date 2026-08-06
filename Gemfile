@@ -40,7 +40,7 @@ gem "vite_rails", "~> 3.0"
 
 gem "aws-sdk-s3"
 
-gem "openssl", "~> 3.3.1"
+gem "openssl", "~> 4.0.0"
 
 gem "pagy"
 
